@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:h="http://java.sun.com/jsf/html"
+	xmlns:p="http://primefaces.org/ui"
+	xmlns:f="http://java.sun.com/jsf/core">
+
+<h:head>
+	<title>Map Draw</title>
+	<!-- CSS -->
+	<h:outputStylesheet library="css" name="jquery-jvectormap-2.0.3.css" />
+	<h:outputStylesheet library="css" name="style-basic.css" />
+
+	<!-- Script -->
+	<h:outputScript library="js" name="jquery-1.7.2.min.js" />
+	<h:outputScript library="js" name="jquery-jvectormap-2.0.3.min.js" />
+	<!--  <h:outputScript library="js" name="jquery-jvectormap-svg-path.js" />-->
+
+</h:head>
+
+<h:body>
+	<p:growl id="growl" />
+	<section class="contentSection">
+
+		<h:panelGroup layout="block" id="map-drawing" styleClass="canvas"></h:panelGroup>
+
+
+		<h:panelGroup layout="block" id="mySidenav" styleClass="sidenav">
+
+			<h:panelGroup layout="block" styleClass="sidenav-header">
+				<span class="w3-bar-item w3-padding-16">Details</span>
+				<button onclick="closeNav()"
+					class="w3-bar-item w3-button w3-right w3-padding-16"
+					title="close Sidebar">×</button>
+			</h:panelGroup>
+
+			<h:panelGroup layout="block" id="details"
+				styleClass="sidenav-details">
+
+				<h:panelGroup layout="block" id="details-id"
+					styleClass="sidenav-details-bar">
+
+				</h:panelGroup>
+
+				<h:panelGroup layout="block" id="details-status"
+					styleClass="sidenav-details-bar">
+
+				</h:panelGroup>
+
+				<h:panelGroup layout="block" id="details-address"
+					styleClass="sidenav-details-bar">
+
+				</h:panelGroup>
+
+				<h:panelGroup layout="block" id="details-info"
+					styleClass="sidenav-details-bar">
+
+				</h:panelGroup>
+
+
+				<h:panelGroup layout="block" styleClass="sidenav-details-button">
+					<button id="buybtn" onclick="onBuy()" title="Buy the Plot">BUY</button>
+					<button id="holdbtn" onclick="onHold()" title="Hold the Plot">HOLD</button>
+				</h:panelGroup>
+
+
+				<h:panelGroup layout="block" id="details-disclaimer"
+					styleClass="sidenav-details-disclaimer">
+
+				</h:panelGroup>
+
+			</h:panelGroup>
+		</h:panelGroup>
+
+		<h:panelGroup id="popUpWindow" styleClass="popUpWindow">
+			<h:panelGroup layout="block" styleClass="imgcontainer">
+				<h:graphicImage library="img" name="loading.gif" alt="Loding...."
+					height="65" width="70" />
+			</h:panelGroup>
+		</h:panelGroup>
+
+	</section>
+
+
+	<h:form id="formId">
+		<h:inputHidden id="pathid" value="#{mapDrawBean.pathId}" />
+		<h:inputHidden id="btnstatus" value="#{mapDrawBean.btnStatus}" />
+		<p:commandButton style="display:none" id="link"
+			actionListener="#{mapDrawBean.onBuyPlot}"></p:commandButton>
+		<p:commandButton style="display:none" id="message"
+			action="#{mapDrawBean.showStatusMessage}"></p:commandButton>
+	</h:form>
+
+	<!-- Script -->
+
+	<!-- Script -->
+	<script type="text/javascript">
+		//<![CDATA[
+var data="Not Found";
+var selected_plot="";
+$(function() {
+	
+	 $.getJSON('http://148.251.80.49:8080/RESTfulExample/rest/hello', function(data){
+            
+            var layerIdList = ["_SoldPL", "_PlotPoly"];
+            var statusList = ["Sold", "Not-Sold", "Hold"];
+            var pathId = {};
+            var index = 0;
+            for (var val = 0; val < layerIdList.length; val++) {
+                var layerId = layerIdList[val];
+                
+                for (var i = 1; i <= 200; i++) {
+                    var str = "" + layerId + i;
+                    if(data[str]!=null){
+                    	console.log(data);
+                    	var name=data[str].name;
+                    	console.log(name);
+                    	var res=name.split("\n");
+                    	var status=""+res[1];
+                    	if(status.includes("ON HOLD")){
+                    		pathId[str] = statusList[2];
+                    	}else if(status.includes("NOT SOLD")){
+                    		pathId[str] = statusList[1];
+                    	}else{
+                    		pathId[str] = statusList[0];
+                    	}
+                    }
+                    
+                }
+            } 
+            
+            
+            
+          
+
+            map = new jvm.Map({
+                container: $('#map-drawing'),
+                map: 'map_drawing',
+                backgroundColor: '#b5cae3',
+                regionStyle: {
+                    initial: {
+                        "fill": 'white',
+                        "fill-opacity": 0.8,
+                        "stroke": 'black',
+                        "stroke-width": 0.5,
+                        "stroke-opacity": 1
+                    },
+                    hover: {
+                        "fill-opacity": 0.8,
+                        "fill": '#ffff99',
+                        "cursor": 'pointer'
+                    },
+                    selected: {
+                        "fill": '#ffff99'
+                    },
+                    selectedHover: {}
+                },
+                series: {
+                    regions: [{
+                        values: pathId,
+                        scale: {
+                            "Sold": "#ff6666",
+                            "Not-Sold": "#4dff88",
+                            "Hold": "#ffc61a"
+                        }
+                    }]
+                },
+                onRegionClick: function(element, code) {
+                	selected_plot=code;
+                	closeNav();
+                	setTimeout(function(){
+                		document.getElementById("mySidenav").style.width = "380px";
+                	},1000);
+                	
+                    var data=document.getElementsByClassName("jvectormap-tip")[0].textContent;
+                    code=code.replace(/[0-9]/g, '');
+                    
+                    if(code=="_SoldPL" || code=="_PlotPoly" || code=="_HatchTownhouse"){
+                    	
+                    	var res=data.split("\n");
+                    	var status=""+res[1];
+                    	
+                    	document.getElementById("details-id").innerHTML=res[0];
+                    	document.getElementById("details-status").innerHTML=res[1];
+                    	document.getElementById("details-address").innerHTML=res[2];
+                    	document.getElementById("details-info").innerHTML=res[3];
+                    	
+                    	if(status.includes("ON HOLD")){
+                    		document.getElementById("buybtn").disabled=true;
+                    		document.getElementById("holdbtn").disabled=true;
+                    		document.getElementById("buybtn").style.display="block";
+                    		document.getElementById("holdbtn").style.display="block";
+                    		document.getElementById("buybtn").style.opacity = "0.3";
+                    		document.getElementById("holdbtn").style.opacity="0.3";
+                    		document.getElementById("details-disclaimer").innerHTML="This Plot has been OnHold!";
+                    		showMessage("On Hold");
+                    	}else if(status.includes("NOT SOLD")){
+                    		
+                    		document.getElementById("buybtn").disabled=false;
+                    		document.getElementById("holdbtn").disabled=false;
+                    		document.getElementById("buybtn").style.opacity = "1.0";
+                    		document.getElementById("holdbtn").style.opacity="1.0";
+                    		document.getElementById("buybtn").style.display="block";
+                    		document.getElementById("holdbtn").style.display="block";
+                    		document.getElementById("details-disclaimer").innerHTML="";
+                    	}else{
+                    		document.getElementById("buybtn").disabled=true;
+                    		document.getElementById("holdbtn").disabled=true;
+                    		document.getElementById("buybtn").style.display="block";
+                    		document.getElementById("holdbtn").style.display="block";
+                    		document.getElementById("buybtn").style.opacity = "0.3";
+                    		document.getElementById("holdbtn").style.opacity="0.3";
+                    		document.getElementById("details-disclaimer").innerHTML="This Plot has been Sold!";
+                    		showMessage("Sold");
+                    	}
+                    	
+                    }else{
+                    	document.getElementById("buybtn").style.display="none";
+                    	document.getElementById("holdbtn").style.display="none";
+                    	document.getElementById("details-id").innerHTML="---";
+                    	document.getElementById("details-status").innerHTML="---";
+                    	document.getElementById("details-address").innerHTML="---";
+                    	document.getElementById("details-info").innerHTML="---";
+                    	document.getElementById("details-disclaimer").innerHTML="";
+                    	showMessage("Not Valid");
+                    }
+                       
+                    
+                	//var data = map.getRegionName(code);
+                  
+                    //window.Android.showToast(data);  //response to Android
+                }
+
+            });
+            
+            document.getElementsByClassName("jvectormap-zoomin")[0].click();
+            
+	 });
+});
+
+function closeNav() {
+    document.getElementById("mySidenav").style.width = "0";
+}
+function onBuy(){
+	closeNav();
+	document.getElementById("popUpWindow").style.display="block";
+	setTimeout(function(){ 
+		document.getElementById("formId:pathid").value = selected_plot;
+		document.getElementById("formId:btnstatus").value = "buy";
+		document.getElementById("formId:link").click(); 
+		document.getElementById("popUpWindow").style.display="none";
+		window.location.reload(true);
+	}, 
+	5000);
+} 
+
+function onHold(){
+	closeNav();
+	document.getElementById("popUpWindow").style.display="block";
+	setTimeout(function(){ 
+		document.getElementById("formId:pathid").value = selected_plot;
+		document.getElementById("formId:btnstatus").value = "hold";
+		document.getElementById("formId:link").click(); 
+		document.getElementById("popUpWindow").style.display="none";
+		window.location.reload(true);
+	}, 
+	5000);
+}
+
+function showMessage(status){
+	document.getElementById("formId:btnstatus").value = status;
+	document.getElementById("formId:message").click();
+}
+
+		//]]>
+</script>
+
+
+	<script type="text/javascript">
+    //<![CDATA[
+      var rand=Math.floor(Math.random() * 1000000000);
+      //document.write('<script src="http://localhost:8080/plotmap/resources/js/map-drawing.js?dev=' + rand  + '"\><\/script>');
+      document.write('<script src="http://148.251.80.49:8080/plotmap/resources/js/jquery-jvectormap-svg-path.js?dev=' + rand  + '"\><\/script>');
+  
+    // ]]>
+    </script>
+</h:body>
+</html>
